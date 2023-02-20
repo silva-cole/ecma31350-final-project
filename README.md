@@ -3,5 +3,5 @@
 This is a repo for our final project for ECMA 31350 - Machine Learning for Economists. Contributors are 
 
 Cole Silva (silvacole@uchicago.edu)
-
+Kavitya Sarma (kavitya.sarma@gmail.com)
 ...
