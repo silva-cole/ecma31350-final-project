@@ -1,6 +1,6 @@
 # Create pysch_pub_df which has all publications from top 5 psych journals between 1980 and 2002
 # Journals:
-    # Advances in Experimental Social Pyschology
+    # Advances in Experimental Social Psychology
     # Annual Review of Psychology
     # Pyschological Science in the Public Interest
     # Pyschological Bulletin
@@ -8,61 +8,39 @@
 # source, https://www.scimagojr.com/journalrank.php?area=3200&year=2006
 # columns: title, jcode, vol, no, pages, author1 through author5, authors(no), citations_2006, citations_all
 
+from scholarly import scholarly
+import pandas as pd
 
-import requests
-import re
-import json
-from parsel import Selector
+query = "Advances in Experimental Social Psychology"
 
-def scrape_all_authors_from_university(label: str, university_name: str):
+# Search for the journal and retrieve its page
+search_results = scholarly.search_pubs(query)
+####PROBLEM WITH .fill()
+journal_page = next(search_results).fill()
 
-    params = {
-        "view_op": "search_authors",                       # author results
-        "mauthors": f'label:{label} "{university_name}"',  # search query
-        "hl": "en",                                        # language
-        "astart": 0                                        # page number
-    }
+# Retrieve the publications from the journal page
+publications = journal_page.citedby
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.87 Safari/537.36",
-    }
+# Create a list to store the scraped data
+data = []
 
-    profile_results = []
+# Loop through each publication and extract its information
+for pub in publications:
+    if pub.bib['year'] >= 1980 and pub.bib['year'] <= 2002:
+        row = {
+            'Title': pub.bib['title'],
+            'Author': pub.bib['author'],
+            'Journal': pub.bib['journal'],
+            'Year': pub.bib['year'],
+            'Abstract': pub.bib['abstract']
+        }
+        data.append(row)
 
-    profiles_is_present = True
-    while profiles_is_present:
+# Create a pandas DataFrame from the scraped data
+df = pd.DataFrame(data)
 
-        html = requests.get("https://scholar.google.com/citations", params=params, headers=headers, timeout=30)
-        select = Selector(html.text)
-
-        print(f"extracting authors at page #{params['astart']}.")
-
-        for profile in select.css(".gs_ai_chpr"):
-            name = profile.css(".gs_ai_name a::text").get()
-            link = f'https://scholar.google.com{profile.css(".gs_ai_name a::attr(href)").get()}'
-            affiliations = profile.css(".gs_ai_aff").xpath('normalize-space()').get()
-            email = profile.css(".gs_ai_eml::text").get()
-            cited_by = profile.css(".gs_ai_cby::text").get()  # Cited by 17143 -> 17143
-            interests = profile.css(".gs_ai_one_int::text").getall()
-
-            profile_results.append({
-                "profile_name": name,
-                "profile_link": link,
-                "profile_affiliations": affiliations,
-                "profile_email": email,
-                "profile_city_by_count": cited_by,
-                "profile_interests": interests
-            })
-
-        # if next page token is present -> update next page token and increment 10 to get the next page
-        if select.css("button.gs_btnPR::attr(onclick)").get():
-            # https://regex101.com/r/e0mq0C/1
-            params["after_author"] = re.search(r"after_author\\x3d(.*)\\x26", select.css("button.gs_btnPR::attr(onclick)").get()).group(1)  # -> XB0HAMS9__8J
-            params["astart"] += 10
-        else:
-            profiles_is_present = False
-
-    return profile_results
+# Print the DataFrame
+print(df)
 
 
-scrape_all_authors_from_university(label="biology", university_name="Michigan University")
+
